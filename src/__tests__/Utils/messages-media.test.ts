@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals'
 import * as fs from 'fs'
 import * as http from 'http'
 import { Agent } from 'https'
@@ -415,6 +416,22 @@ describe('encryptedStream', () => {
 		expect(result.fileLength).toBe(chunks.join('').length)
 
 		await cleanupFiles([result.encFilePath, result.originalFilePath])
+	})
+
+	it('should accept a remote stream exactly at maxContentLength', async () => {
+		const originalFetch = globalThis.fetch
+		const testData = Buffer.from('exact')
+		globalThis.fetch = jest.fn(async () => new Response(testData)) as typeof fetch
+
+		try {
+			const result = await encryptedStream({ url: new URL('https://example.com/media') }, 'document', {
+				opts: { maxContentLength: testData.length }
+			})
+			expect(result.fileLength).toBe(testData.length)
+			await cleanupFiles([result.encFilePath, result.originalFilePath])
+		} finally {
+			globalThis.fetch = originalFetch
+		}
 	})
 
 	it('should save original file when saveOriginalFileIfRequired is true', async () => {

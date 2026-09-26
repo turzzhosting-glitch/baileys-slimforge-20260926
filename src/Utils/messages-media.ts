@@ -379,7 +379,7 @@ export const getHttpStream = async (url: string | URL, options: RequestInit & { 
 type EncryptedStreamOptions = {
 	saveOriginalFileIfRequired?: boolean
 	logger?: ILogger
-	opts?: RequestInit
+	opts?: RequestInit & { maxContentLength?: number }
 }
 
 export const encryptedStream = async (
@@ -424,11 +424,7 @@ export const encryptedStream = async (
 		for await (const data of stream) {
 			fileLength += data.length
 
-			if (
-				type === 'remote' &&
-				(opts as any)?.maxContentLength &&
-				fileLength + data.length > (opts as any).maxContentLength
-			) {
+			if (type === 'remote' && opts?.maxContentLength && fileLength > opts.maxContentLength) {
 				throw new Boom(`content length exceeded when encrypting "${type}"`, {
 					data: { media, type }
 				})
