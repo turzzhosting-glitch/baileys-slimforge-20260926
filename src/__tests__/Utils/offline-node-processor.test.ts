@@ -214,6 +214,24 @@ describe('makeOfflineNodeProcessor', () => {
 			// Both nodes should now be processed (msg-1 was still in queue)
 			expect(processed).toEqual(['msg-1', 'msg-2'])
 		})
+
+		it('should resume queued nodes when the connection reopens without a new enqueue', async () => {
+			const processed: string[] = []
+			const handler = jest.fn<(node: BinaryNode) => Promise<void>>().mockImplementation(async node => {
+				processed.push(node.attrs.id!)
+			})
+
+			isWsOpen = false
+			const processor = createProcessor(new Map([['message', handler]]))
+			processor.enqueue('message', makeNode('msg-1'))
+			await new Promise(r => setTimeout(r, 10))
+			expect(processed).toEqual([])
+
+			isWsOpen = true
+			processor.resume()
+			await new Promise(r => setTimeout(r, 10))
+			expect(processed).toEqual(['msg-1'])
+		})
 	})
 
 	describe('batch yielding', () => {

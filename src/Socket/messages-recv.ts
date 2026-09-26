@@ -2053,6 +2053,10 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	const inFlight463Recoveries = new Set<string>()
 
 	ev.on('connection.update', ({ isOnline, connection }) => {
+		if (connection === 'open') {
+			offlineNodeProcessor.resume()
+		}
+
 		if (typeof isOnline !== 'undefined') {
 			sendActiveReceipts = isOnline
 			logger.trace(`sendActiveReceipts set to "${sendActiveReceipts}"`)

@@ -27,10 +27,8 @@ export function makeOfflineNodeProcessor(
 	const nodes: OfflineNode[] = []
 	let isProcessing = false
 
-	const enqueue = (type: MessageType, node: BinaryNode) => {
-		nodes.push({ type, node })
-
-		if (isProcessing) {
+	const process = () => {
+		if (isProcessing || !nodes.length || !deps.isWsOpen()) {
 			return
 		}
 
@@ -66,5 +64,10 @@ export function makeOfflineNodeProcessor(
 		promise().catch(error => deps.onUnexpectedError(error, 'processing offline nodes'))
 	}
 
-	return { enqueue }
+	const enqueue = (type: MessageType, node: BinaryNode) => {
+		nodes.push({ type, node })
+		process()
+	}
+
+	return { enqueue, resume: process }
 }
