@@ -687,6 +687,8 @@ export type UploadParams = {
 	agent?: Agent
 }
 
+const MAX_UPLOAD_RESPONSE_BYTES = 1024 * 1024
+
 export const uploadWithNodeHttp = async (
 	{ url, filePath, headers, timeoutMs, agent }: UploadParams,
 	redirectCount = 0
@@ -737,7 +739,23 @@ export const uploadWithNodeHttp = async (
 				}
 
 				let body = ''
-				res.on('data', chunk => (body += chunk))
+				let bodyLength = 0
+				let responseTooLarge = false
+				res.on('data', chunk => {
+					if (responseTooLarge) return
+					bodyLength += chunk.length
+					if (bodyLength > MAX_UPLOAD_RESPONSE_BYTES) {
+						responseTooLarge = true
+						res.destroy()
+						reject(new Error('Upload response too large'))
+						return
+					}
+
+					body += chunk
+				})
+				res.on('error', error => {
+					if (!responseTooLarge) reject(error)
+				})
 				res.on('end', () => {
 					try {
 						resolve(JSON.parse(body))

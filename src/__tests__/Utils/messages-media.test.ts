@@ -198,6 +198,21 @@ describe('uploadWithNodeHttp', () => {
 		expect(result).toBeUndefined()
 	})
 
+	it('should reject an oversized upload response', async () => {
+		await startServer((_req, res) => {
+			res.writeHead(200, { 'Content-Type': 'text/plain' })
+			res.end('x'.repeat(1024 * 1024 + 1))
+		})
+
+		const params: UploadParams = {
+			url: `http://localhost:${serverPort}/upload`,
+			filePath: tempFilePath,
+			headers: { 'Content-Type': 'application/octet-stream' }
+		}
+
+		await expect(uploadWithNodeHttp(params)).rejects.toThrow('Upload response too large')
+	})
+
 	it('should handle relative redirect URLs', async () => {
 		const expectedResponse = { url: 'https://example.com/media/rel', direct_path: '/media/rel' }
 		let requestCount = 0
