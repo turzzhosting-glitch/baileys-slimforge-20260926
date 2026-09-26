@@ -217,8 +217,12 @@ export function bindWaitForEvent<T extends keyof BaileysEventMap>(ev: BaileysEve
 
 			ev.on('connection.update', closeListener)
 			listener = async update => {
-				if (await check(update)) {
-					resolve()
+				try {
+					if (await check(update)) {
+						resolve()
+					}
+				} catch (error) {
+					reject(error)
 				}
 			}
 

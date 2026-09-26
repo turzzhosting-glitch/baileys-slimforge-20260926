@@ -1,4 +1,24 @@
-import { BufferJSON } from '../../Utils/generics'
+import type { BaileysEventEmitter, BaileysEventMap } from '../../Types'
+import { bindWaitForEvent, BufferJSON } from '../../Utils/generics'
+
+const makeEventEmitter = (): BaileysEventEmitter => {
+	const listeners = new Map<keyof BaileysEventMap, Set<(value: never) => void>>()
+	return {
+		on: (event, listener) => {
+			const entries = listeners.get(event) || new Set<(value: never) => void>()
+			entries.add(listener as (value: never) => void)
+			listeners.set(event, entries)
+		},
+		off: (event, listener) => {
+			listeners.get(event)?.delete(listener as (value: never) => void)
+		},
+		removeAllListeners: event => listeners.delete(event),
+		emit: (event, value) => {
+			for (const listener of listeners.get(event) || []) listener(value as never)
+			return true
+		}
+	}
+}
 
 describe('BufferJSON', () => {
 	const originalObject = {
@@ -66,5 +86,22 @@ describe('BufferJSON', () => {
 	it('should correctly handle an empty object', () => {
 		const revived = JSON.parse('{}', BufferJSON.reviver)
 		expect(revived).toEqual({})
+	})
+})
+
+describe('bindWaitForEvent', () => {
+	it('should reject and clean up when the async predicate throws', async () => {
+		const ev = makeEventEmitter()
+		const wait = bindWaitForEvent(ev, 'connection.update')
+		const error = new Error('predicate failed')
+		const pending = wait(async () => {
+			throw error
+		}, 1000)
+
+		ev.emit('connection.update', { connection: 'open' })
+		await expect(pending).rejects.toBe(error)
+
+		// A second event must not invoke the completed waiter again.
+		ev.emit('connection.update', { connection: 'open' })
 	})
 })
