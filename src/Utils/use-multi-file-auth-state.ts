@@ -9,18 +9,31 @@ import { BufferJSON } from './generics'
 // We need to lock files due to the fact that we are using async functions to read and write files
 // https://github.com/WhiskeySockets/Baileys/issues/794
 // https://github.com/nodejs/node/issues/26338
-// Use a Map to store mutexes for each file path
-const fileLocks = new Map<string, Mutex>()
+// Use a Map to store mutexes for each file path. Entries are removed once no
+// operation is using them so long-running multi-session processes do not retain
+// one mutex per auth key ever seen.
+const fileLocks = new Map<string, { mutex: Mutex; users: number }>()
 
 // Get or create a mutex for a specific file path
 const getFileLock = (path: string): Mutex => {
-	let mutex = fileLocks.get(path)
-	if (!mutex) {
-		mutex = new Mutex()
-		fileLocks.set(path, mutex)
+	let entry = fileLocks.get(path)
+	if (!entry) {
+		entry = { mutex: new Mutex(), users: 0 }
+		fileLocks.set(path, entry)
 	}
 
-	return mutex
+	entry.users++
+	return entry.mutex
+}
+
+const releaseFileLock = (path: string, mutex: Mutex) => {
+	const entry = fileLocks.get(path)
+	if (!entry || entry.mutex !== mutex) return
+
+	entry.users--
+	if (entry.users === 0 && !mutex.isLocked()) {
+		fileLocks.delete(path)
+	}
 }
 
 /**
@@ -43,6 +56,7 @@ export const useMultiFileAuthState = async (
 				await writeFile(filePath, JSON.stringify(data, BufferJSON.replacer))
 			} finally {
 				release()
+				releaseFileLock(filePath, mutex)
 			}
 		})
 	}
@@ -58,6 +72,7 @@ export const useMultiFileAuthState = async (
 					return JSON.parse(data, BufferJSON.reviver)
 				} finally {
 					release()
+					releaseFileLock(filePath, mutex)
 				}
 			})
 		} catch (error) {
@@ -76,6 +91,7 @@ export const useMultiFileAuthState = async (
 				} catch {
 				} finally {
 					release()
+					releaseFileLock(filePath, mutex)
 				}
 			})
 		} catch {}

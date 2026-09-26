@@ -211,15 +211,6 @@ export const makeEventBuffer = (logger: ILogger): BaileysBufferableEventEmitter 
 				buffer()
 				try {
 					const result = await work(...args)
-					// If this is the only buffer, flush after a small delay
-					if (bufferCount === 1) {
-						setTimeout(() => {
-							if (isBuffering && bufferCount === 1) {
-								flush()
-							}
-						}, 100) // Small delay to allow nested buffers
-					}
-
 					return result
 				} catch (error) {
 					throw error
