@@ -288,6 +288,16 @@ export type AnyRegularMessageContent = (
 
 export type AnyMessageContent =
 	| AnyRegularMessageContent
+	| ({
+			/**
+			 * Escape hatch for message types added by WhatsApp before this
+			 * package's convenience union is updated.
+			 */
+			protoMessage: WAMessageContent
+	  } & Mentionable &
+			Contextable &
+			ViewOnce &
+			Editable)
 	| {
 			forward: WAMessage
 			force?: boolean
